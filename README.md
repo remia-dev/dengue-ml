@@ -69,6 +69,17 @@ Then open **http://localhost:7000** (or **http://127.0.0.1:7000**) in your brows
 
 **Data:** Provide at least 24 values (e.g. 2 years of monthly data) for reasonable results.
 
+**Deploy on Railway:** The app reads `PORT` from the environment and builds a single runnable JAR with the `web` profile. From the project root:
+
+1. Install the [Railway CLI](https://docs.railway.app/develop/cli) (optional) or use the [Railway dashboard](https://railway.app).
+2. Create a new project and connect your repo (or run `railway init` in the repo).
+3. Add a new service; choose this repo. Railway will use `nixpacks.toml` to run:
+   - **Build:** `mvn clean package -Pweb -DskipTests` → produces `target/dengue-predictor-web.jar`
+   - **Start:** `java -jar target/dengue-predictor-web.jar`
+4. Deploy. The service will get a public URL; open it to use the web app.
+
+No extra env vars are required; Railway sets `PORT` automatically.
+
 **REST API:**
 
 | Method | Path | Description |

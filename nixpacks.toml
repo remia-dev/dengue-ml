@@ -1,0 +1,11 @@
+# Nixpacks config for Railway (Java Maven + web fat JAR)
+# https://nixpacks.com/docs/configuration/file
+
+[phases.setup]
+nixPkgs = ["jdk17", "maven"]
+
+[phases.build]
+cmds = ["mvn clean package -Pweb -DskipTests"]
+
+[start]
+cmd = "java -jar target/dengue-predictor-web.jar"

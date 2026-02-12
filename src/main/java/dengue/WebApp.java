@@ -24,12 +24,22 @@ import java.util.stream.Collectors;
 public class WebApp {
 
     private static final Gson GSON = new Gson();
-    private static final int PORT = 7000;
+
+    private static int getPort() {
+        String env = System.getenv("PORT");
+        if (env != null && !env.isBlank()) {
+            try {
+                return Integer.parseInt(env.trim());
+            } catch (NumberFormatException ignored) { }
+        }
+        return 7000;
+    }
 
     public static void main(String[] args) {
+        int port = getPort();
         Javalin app = Javalin.create(cfg -> {
             cfg.staticFiles.add("/public", Location.CLASSPATH);
-        }).start("0.0.0.0", PORT);
+        }).start("0.0.0.0", port);
 
         // Serve index from classpath so it always works (avoids static path issues)
         app.get("/", ctx -> {
@@ -151,12 +161,12 @@ public class WebApp {
         app.get("/api/health", ctx -> {
             Map<String, Object> h = new HashMap<>();
             h.put("status", "ok");
-            h.put("port", PORT);
+            h.put("port", port);
             sendJson(ctx, 200, h);
         });
 
-        System.out.println("Dengue ML web app: http://localhost:" + PORT);
-        System.out.println("Also try: http://127.0.0.1:" + PORT);
+        System.out.println("Dengue ML web app: http://localhost:" + port);
+        System.out.println("Also try: http://127.0.0.1:" + port);
     }
 
     private static void sendJson(io.javalin.http.Context ctx, int status, Object body) {
