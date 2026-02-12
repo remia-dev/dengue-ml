@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dengue ML Predictor</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4d;
+      --text: #e6edf3;
+      --muted: #8b9cb3;
+      --accent: #58a6ff;
+      --success: #3fb950;
+      --error: #f85149;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 1.5rem;
+      line-height: 1.5;
+    }
+    .container { max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.35rem; }
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 0.75rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+      resize: vertical;
+    }
+    textarea::placeholder { color: var(--muted); }
+    .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; }
+    .field { flex: 1; min-width: 80px; }
+    .field input {
+      width: 100%;
+      padding: 0.5rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    button {
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    button:hover { filter: brightness(1.1); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .actions { display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; }
+    #results { margin-top: 1.5rem; }
+    .result-section { margin-bottom: 1.25rem; }
+    .result-section h3 { font-size: 1rem; color: var(--muted); margin-bottom: 0.5rem; }
+    .stat { font-size: 0.95rem; margin-bottom: 0.25rem; }
+    .stat strong { color: var(--accent); }
+    .forecast-list { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+    .forecast-list span {
+      background: var(--bg);
+      padding: 0.35rem 0.6rem;
+      border-radius: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+    .error { color: var(--error); margin-top: 0.5rem; }
+    .loading { color: var(--muted); }
+    .info-toggle {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      margin-bottom: 0.75rem;
+    }
+    .info-toggle:hover { filter: brightness(1.1); }
+    .info-details {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .info-details h4 { color: var(--text); font-size: 0.95rem; margin: 0.75rem 0 0.35rem; }
+    .info-details h4:first-child { margin-top: 0; }
+    .info-details p { margin: 0 0 0.5rem; }
+    .info-details ul { margin: 0.25rem 0 0.5rem; padding-left: 1.25rem; }
+    .chart-wrap { position: relative; height: 260px; margin: 1rem 0; }
+    .chart-caption { font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Dengue ML Predictor</h1>
+    <p class="subtitle">Linear regression (statistical) + SARIMA (predictive) for dengue case modeling</p>
+
+    <button type="button" class="info-toggle" id="infoToggle" aria-expanded="false">Show info &amp; model details</button>
+    <div class="info-details" id="infoDetails" hidden>
+      <h4>What this app does</h4>
+      <p>You provide a time series of dengue case counts (e.g. monthly). The app fits two models: <strong>linear regression</strong> (statistical relationship with time) and <strong>SARIMA</strong> (seasonal autoregressive integrated moving average) for short-term forecasting.</p>
+      <h4>Linear regression (statistical modeling)</h4>
+      <p>Model: <em>y = β₀ + β₁·t</em>, where <em>t</em> is the time index. It estimates a trend line through your data.</p>
+      <ul>
+        <li><strong>Intercept β₀</strong> — baseline level when t = 0.</li>
+        <li><strong>Slope β₁</strong> — average change in cases per time step (e.g. per month).</li>
+        <li><strong>R²</strong> — fraction of variance explained (0–1). Low R² means the trend line fits poorly; seasonality may dominate.</li>
+        <li><strong>Adjusted R²</strong> — R² adjusted for number of parameters; use for comparison across models.</li>
+      </ul>
+      <h4>SARIMA (predictive modeling)</h4>
+      <p>SARIMA(p,d,q)(P,D,Q)s captures trend and seasonality. For monthly data with yearly pattern, <em>s = 12</em> is typical. Default (1,0,1)(1,0,1)12 is a common starting point.</p>
+      <ul>
+        <li><strong>p, d, q</strong> — non-seasonal AR order, differencing, MA order.</li>
+        <li><strong>P, D, Q</strong> — seasonal AR, seasonal differencing, seasonal MA.</li>
+        <li><strong>s</strong> — season length (e.g. 12 for monthly, 4 for quarterly).</li>
+      </ul>
+      <p>The forecast is the predicted case count for the next N periods (e.g. next 6 months).</p>
+      <h4>Data requirements</h4>
+      <p>Provide at least 24 values (e.g. 2 years of monthly data). More data usually improves SARIMA. Use comma- or space-separated numbers.</p>
+    </div>
+
+    <div class="card">
+      <label for="cases">Case counts (one per line or comma-separated, e.g. monthly data)</label>
+      <textarea id="cases" placeholder="45, 52, 61, 78, 88, 95, 102, 98, 85, 72, 58, 48, ..."></textarea>
+      <div class="actions">
+        <button type="button" id="loadSample">Use sample data</button>
+        <button type="button" id="analyze">Analyze</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0; font-size:0.95rem;">SARIMA parameters (optional)</h3>
+      <div class="row">
+        <div class="field"><label>p</label><input type="number" id="p" value="1" min="0" /></div>
+        <div class="field"><label>d</label><input type="number" id="d" value="0" min="0" /></div>
+        <div class="field"><label>q</label><input type="number" id="q" value="1" min="0" /></div>
+        <div class="field"><label>P</label><input type="number" id="P" value="1" min="0" /></div>
+        <div class="field"><label>D</label><input type="number" id="D" value="0" min="0" /></div>
+        <div class="field"><label>Q</label><input type="number" id="Q" value="1" min="0" /></div>
+        <div class="field"><label>s (season)</label><input type="number" id="s" value="12" min="1" /></div>
+        <div class="field"><label>Forecast steps</label><input type="number" id="forecastSteps" value="6" min="1" max="60" /></div>
+      </div>
+    </div>
+
+    <div id="results"></div>
+  </div>
+
+  <script>
+    const casesEl = document.getElementById('cases');
+    const loadSample = document.getElementById('loadSample');
+    const analyzeBtn = document.getElementById('analyze');
+    const resultsEl = document.getElementById('results');
+
+    document.getElementById('infoToggle').addEventListener('click', function() {
+      var details = document.getElementById('infoDetails');
+      var open = !details.hidden;
+      details.hidden = open;
+      this.setAttribute('aria-expanded', !open);
+      this.textContent = open ? 'Show info & model details' : 'Hide info & model details';
+    });
+
+    loadSample.addEventListener('click', async () => {
+      try {
+        const r = await fetch('/api/sample');
+        const data = await r.json();
+        const arr = Array.isArray(data) ? data : (data && data.cases ? data.cases : []);
+        if (arr.length === 0) {
+          resultsEl.innerHTML = '<div class="card error">No sample data received.</div>';
+          return;
+        }
+        casesEl.value = arr.map(function(n) { return Number(n); }).join(', ');
+      } catch (e) {
+        resultsEl.innerHTML = '<div class="card error">Failed to load sample: ' + e.message + '</div>';
+      }
+    });
+
+    function parseCases(raw) {
+      const text = raw.replace(/\s+/g, ' ').trim();
+      if (!text) return [];
+      return text.split(/[\s,;]+/).map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+    }
+
+    analyzeBtn.addEventListener('click', async () => {
+      const cases = parseCases(casesEl.value);
+      if (cases.length < 24) {
+        resultsEl.innerHTML = '<div class="card error">Provide at least 24 values (e.g. 2 years of monthly data).</div>';
+        return;
+      }
+      analyzeBtn.disabled = true;
+      resultsEl.innerHTML = '<div class="card loading">Running models…</div>';
+      if (window._dengueCharts) { window._dengueCharts.forEach(function(c) { c.destroy(); }); window._dengueCharts = []; }
+      try {
+        const body = {
+          cases,
+          sarima: {
+            p: parseInt(document.getElementById('p').value, 10) || 1,
+            d: parseInt(document.getElementById('d').value, 10) || 0,
+            q: parseInt(document.getElementById('q').value, 10) || 1,
+            P: parseInt(document.getElementById('P').value, 10) || 1,
+            D: parseInt(document.getElementById('D').value, 10) || 0,
+            Q: parseInt(document.getElementById('Q').value, 10) || 1,
+            s: parseInt(document.getElementById('s').value, 10) || 12
+          },
+          forecastSteps: parseInt(document.getElementById('forecastSteps').value, 10) || 6
+        };
+        const r = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        let data = {};
+        try {
+          data = await r.json();
+        } catch (_) {
+          data = { error: r.ok ? 'Invalid response from server' : 'Server error ' + r.status };
+        }
+        function showErr(m) {
+          resultsEl.innerHTML = '<div class="card error">' + m + '</div>';
+        }
+        if (data.error) {
+          showErr(String(data.error));
+          return;
+        }
+        if (!r.ok) {
+          showErr('Server error ' + r.status);
+          return;
+        }
+        var reg = data.regression;
+        var fcast = data.forecast;
+        if (!reg || typeof reg.intercept !== 'number') {
+          showErr('Missing or invalid regression result.');
+          return;
+        }
+        if (!Array.isArray(fcast) || fcast.length === 0) {
+          showErr('Missing or invalid forecast.');
+          return;
+        }
+        try {
+          var fitted = (reg.fitted && Array.isArray(reg.fitted)) ? reg.fitted.map(function(n) { return Number(n); }) : null;
+          var slope = (reg.coefficients && reg.coefficients.length > 1) ? reg.coefficients[1] : null;
+
+          var html = '<div class="card result-section"><h3>Linear regression (statistical)</h3>';
+          html += '<p class="stat"><strong>Intercept β₀</strong> ' + Number(reg.intercept).toFixed(4) + (slope != null ? ' &nbsp; <strong>Slope β₁</strong> ' + Number(slope).toFixed(4) : '') + '</p>';
+          html += '<p class="stat"><strong>R²</strong> ' + Number(reg.rSquared).toFixed(4) + ' &nbsp; <strong>Adjusted R²</strong> ' + Number(reg.adjustedRSquared).toFixed(4) + '</p>';
+          if (fitted && fitted.length === cases.length && typeof Chart !== 'undefined') {
+            html += '<div class="chart-wrap"><canvas id="chartRegression" aria-label="Observed vs fitted"></canvas></div>';
+            html += '<p class="chart-caption">Observed dengue cases (blue) vs fitted trend line (orange). The line is y = β₀ + β₁·t; R² measures how well this line explains the variation in cases.</p>';
+          }
+          html += '</div>';
+          html += '<div class="card result-section"><h3>SARIMA forecast (next ' + fcast.length + ' periods)</h3><div class="forecast-list">';
+          for (var i = 0; i < fcast.length; i++) {
+            html += '<span>' + (i + 1) + ': ' + Number(fcast[i]).toFixed(2) + '</span>';
+          }
+          html += '</div>';
+          if (typeof Chart !== 'undefined') {
+            html += '<div class="chart-wrap"><canvas id="chartForecast" aria-label="Time series and forecast"></canvas></div>';
+            html += '<p class="chart-caption">Historical cases (blue) and SARIMA forecast (orange) for the next ' + fcast.length + ' periods. Forecasts use the seasonal pattern and recent levels.</p>';
+          }
+          html += '</div>';
+          resultsEl.innerHTML = html;
+
+          if (typeof Chart !== 'undefined') {
+            window._dengueCharts = window._dengueCharts || [];
+            var opts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8b9cb3' } } }, scales: { x: { ticks: { color: '#8b9cb3' }, grid: { color: '#2d3a4d' } }, y: { ticks: { color: '#8b9cb3' }, grid: { color: '#2d3a4d' } } } };
+            if (fitted && fitted.length === cases.length) {
+              var labels = cases.map(function(_, i) { return i; });
+              var chartReg = new Chart(document.getElementById('chartRegression'), {
+                type: 'line',
+                data: {
+                  labels: labels,
+                  datasets: [
+                    { label: 'Observed cases', data: cases, borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true, tension: 0.2 },
+                    { label: 'Fitted (regression)', data: fitted, borderColor: '#d29922', borderDash: [4,2], tension: 0, pointRadius: 0 }
+                  ]
+                },
+                options: opts
+              });
+              window._dengueCharts.push(chartReg);
+            }
+            var histLabels = cases.map(function(_, i) { return i; });
+            var fcastLabels = [];
+            for (var j = 0; j < fcast.length; j++) fcastLabels.push(cases.length + j);
+            var chartFc = new Chart(document.getElementById('chartForecast'), {
+              type: 'line',
+              data: {
+                labels: histLabels.concat(fcastLabels),
+                datasets: [
+                  { label: 'Historical cases', data: cases.concat(Array(fcast.length).fill(null)), borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true, tension: 0.2 },
+                  { label: 'SARIMA forecast', data: Array(cases.length).fill(null).concat(fcast), borderColor: '#3fb950', borderDash: [4,2], tension: 0.2 }
+                ]
+              },
+              options: opts
+            });
+            window._dengueCharts.push(chartFc);
+          }
+        } catch (e2) {
+          showErr('Error displaying results: ' + e2.message);
+        }
+      } catch (e) {
+        resultsEl.innerHTML = '<div class="card error">Request failed: ' + e.message + '</div>';
+      } finally {
+        analyzeBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
